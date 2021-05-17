@@ -1,0 +1,35 @@
+{
+  "name": "driven-by-scroll",
+  "moduleName": "DrivenByScroll",
+  "version": "1.0.0-alpha",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.es.js",
+  "browser": "dist/index.js",
+  "author": {
+    "name": "Feodor Rusanov",
+    "email": "f.rusanov@gmail.com",
+    "url": "https://feodor.me"
+  },
+  "license": "MIT",
+  "scripts": {
+    "build": "rollup -c",
+    "lint": "eslint --fix 'src/**/*.ts'"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.14.2",
+    "@babel/preset-env": "^7.14.2",
+    "@rollup/plugin-babel": "^5.3.0",
+    "@rollup/plugin-commonjs": "^19.0.0",
+    "@rollup/plugin-node-resolve": "^13.0.0",
+    "@rollup/plugin-typescript": "^8.2.1",
+    "@typescript-eslint/eslint-plugin": "^4.24.0",
+    "@typescript-eslint/parser": "^4.24.0",
+    "eslint": "^7.26.0",
+    "eslint-config-airbnb-base": "^14.2.1",
+    "eslint-plugin-import": "^2.23.2",
+    "rollup": "^2.48.0",
+    "rollup-plugin-terser": "^7.0.2",
+    "tslib": "^2.2.0",
+    "typescript": "^4.2.4"
+  }
+}
