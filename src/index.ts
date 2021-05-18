@@ -1,4 +1,5 @@
 import normoliseProgress from './utils/normoliseProgress';
+import throttle from './utils/throttle';
 
 interface DrivenByScrollStatus {
   instance: DrivenByScroll;
@@ -19,6 +20,7 @@ class DrivenByScroll {
   static observed: Array<DrivenByScroll> = [];
   static lastResize: number = Date.now();
   static lastScroll: number = Date.now();
+  static resizeObserver?: ResizeObserver;
 
   // Static methods you can find at the bottom
 
@@ -44,6 +46,7 @@ class DrivenByScroll {
     this.calcBaseSizes();
     this.scrollHandler();
 
+    DrivenByScroll.resizeObserver?.observe(this.$element);
     DrivenByScroll.observed.push(this);
   }
 
@@ -63,8 +66,8 @@ class DrivenByScroll {
     const rect = this.$element.getBoundingClientRect();
 
     this.height = rect.height;
-    this.top = rect.top + DrivenByScroll.viewPortTopLine;
-    this.bottom = this.top + this.height;
+    this.top = Math.round(rect.top + DrivenByScroll.viewPortTopLine);
+    this.bottom = Math.round(this.top + this.height);
 
     this.enterPosition = this.top - DrivenByScroll.windowHeight;
     this.exitPosition = this.bottom;
@@ -132,26 +135,33 @@ class DrivenByScroll {
    */
 
   static start(): void {
+    DrivenByScroll.resizeObserver = new ResizeObserver(
+      throttle(DrivenByScroll.onResize, 500)
+    );
+
     window.addEventListener('scroll', DrivenByScroll.onScroll);
-    window.addEventListener('resize', DrivenByScroll.onResize);
+    // window.addEventListener('resize', DrivenByScroll.onResize);
     DrivenByScroll.onScroll();
     DrivenByScroll.onResize();
   }
 
   static stop(): void {
+    delete DrivenByScroll.resizeObserver;
     window.removeEventListener('scroll', DrivenByScroll.onScroll);
-    window.removeEventListener('resize', DrivenByScroll.onResize);
+    // window.removeEventListener('resize', DrivenByScroll.onResize);
   }
 
   static destroyAll(): void {
     DrivenByScroll.observed.splice(0, DrivenByScroll.observed.length);
   }
 
+  static throttledOnResize?(): unknown;
   static onResize(): void {
-    if (500 > Date.now() - DrivenByScroll.lastResize) return;
+    // if (500 > Date.now() - DrivenByScroll.lastResize) return;
     DrivenByScroll.lastResize = Date.now();
-    DrivenByScroll.windowHeight = window.innerHeight;
+    DrivenByScroll.windowHeight = Math.round(window.innerHeight);
     DrivenByScroll.observed.forEach((instance) => instance.calcBaseSizes());
+    DrivenByScroll.onScroll();
   }
 
   static onScroll(): void {
@@ -165,11 +175,9 @@ class DrivenByScroll {
      *
      * TODO: это место необходимо оптимизировать чтобы пересчет был существенно реже.
      */
-    if (DrivenByScroll.currentPriority === 5) DrivenByScroll.onResize();
 
-    const scrollTop = window.pageYOffset;
-    const clientTop =
-      document.documentElement.clientTop || document.body.clientTop || 0;
+    const scrollTop = Math.round(window.pageYOffset);
+    const clientTop = Math.round(document.documentElement.clientTop);
 
     DrivenByScroll.viewPortTopLine = scrollTop - clientTop;
     DrivenByScroll.viewPortBottomLine =

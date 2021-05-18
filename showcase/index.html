@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <section class="vh-100 my-5">
+        <pre class="sticky-top card p-4"></pre>
+      </section>
+      <section class="my-5">
+        <pre class="card p-4"></pre>
+      </section>
+      <section class="vh-200 my-5">
+        <pre class="sticky-top card p-4"></pre>
+      </section>
+    </main>
+    <script src="../dist/index.min.js"></script>
+    <script>
+      const elements = document.querySelectorAll('pre');
+
+      elements.forEach((element) => {
+        new DrivenByScroll(element.parentElement, (status) => {
+          element.innerHTML = JSON.stringify(
+            {
+              status,
+              static: {
+                windowHeight: DrivenByScroll.windowHeight,
+                viewPortTopLine: DrivenByScroll.viewPortTopLine,
+                viewPortBottomLine: DrivenByScroll.viewPortBottomLine,
+              },
+            },
+            null,
+            4
+          );
+        });
+      });
+    </script>
+  </body>
+</html>
