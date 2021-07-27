@@ -23,34 +23,18 @@ export default [
     input: inputFileName,
     output: [
       {
-        name: moduleName,
+        ...getBaseOutput(),
         file: pkg.browser,
         format: 'iife',
-        sourcemap: 'inline',
-        banner,
       },
       {
-        name: moduleName,
+        ...getBaseOutput(),
         file: pkg.browser.replace('.js', '.min.js'),
         format: 'iife',
-        sourcemap: 'inline',
-        banner,
         plugins: [terser()],
       },
     ],
-    plugins: [
-      pluginTypescript(),
-      pluginCommonjs({
-        extensions: ['.js', '.ts'],
-      }),
-      babel({
-        babelHelpers: 'bundled',
-        configFile: path.resolve(__dirname, '.babelrc.js'),
-      }),
-      pluginNodeResolve({
-        browser: true,
-      }),
-    ],
+    plugins: getPlugins(),
   },
 
   // ES
@@ -58,30 +42,14 @@ export default [
     input: inputFileName,
     output: [
       {
+        ...getBaseOutput(),
         file: pkg.module,
         format: 'es',
-        sourcemap: 'inline',
-        banner,
         exports: 'named',
       },
     ],
-    external: [
-      ...Object.keys(pkg.dependencies || {}),
-      ...Object.keys(pkg.devDependencies || {}),
-    ],
-    plugins: [
-      pluginTypescript(),
-      pluginCommonjs({
-        extensions: ['.js', '.ts'],
-      }),
-      babel({
-        babelHelpers: 'bundled',
-        configFile: path.resolve(__dirname, '.babelrc.js'),
-      }),
-      pluginNodeResolve({
-        browser: false,
-      }),
-    ],
+    external: getExternal(),
+    plugins: getPlugins(),
   },
 
   // CommonJS
@@ -89,29 +57,44 @@ export default [
     input: inputFileName,
     output: [
       {
+        ...getBaseOutput(),
         file: pkg.main,
         format: 'cjs',
-        sourcemap: 'inline',
-        banner,
         exports: 'default',
       },
     ],
-    external: [
-      ...Object.keys(pkg.dependencies || {}),
-      ...Object.keys(pkg.devDependencies || {}),
-    ],
-    plugins: [
-      pluginTypescript(),
-      pluginCommonjs({
-        extensions: ['.js', '.ts'],
-      }),
-      babel({
-        babelHelpers: 'bundled',
-        configFile: path.resolve(__dirname, '.babelrc.js'),
-      }),
-      pluginNodeResolve({
-        browser: false,
-      }),
-    ],
+    external: getExternal(),
+    plugins: getPlugins(),
   },
 ];
+
+function getPlugins() {
+  return [
+    pluginTypescript(),
+    pluginCommonjs({
+      extensions: ['.js', '.ts'],
+    }),
+    babel({
+      babelHelpers: 'bundled',
+      configFile: path.resolve(__dirname, '.babelrc.js'),
+    }),
+    pluginNodeResolve({
+      browser: false,
+    }),
+  ];
+}
+
+function getExternal() {
+  return [
+    ...Object.keys(pkg.dependencies || {}),
+    ...Object.keys(pkg.devDependencies || {}),
+  ];
+}
+
+function getBaseOutput() {
+  return {
+    name: moduleName,
+    sourcemap: true,
+    banner,
+  };
+}
