@@ -2,7 +2,7 @@
   /**
    * @license
    * author: Feodor Rusanov <f.rusanov@gmail.com> (https://feodor.me)
-   * DrivenByScroll.js v1.0.0-alpha
+   * DrivenByScroll.js v1.0.0-alpha2
    * Released under the MIT license.
    */
 
@@ -40,7 +40,6 @@ var throttle = function (fn, wait) {
 
 var DrivenByScroll = (function () {
     function DrivenByScroll(element, callback) {
-        var _a;
         this.top = 0;
         this.bottom = 0;
         this.height = 0;
@@ -48,13 +47,15 @@ var DrivenByScroll = (function () {
         this.exitPosition = 0;
         this.actionAreaHeight = 0;
         this.stepPerPixel = 0;
-        this.priority = 1;
+        this.isVisable = false;
         this.$element = element;
         this.callback = callback;
         this.calcBaseSizes();
         this.scrollHandler();
-        (_a = DrivenByScroll.resizeObserver) === null || _a === void 0 ? void 0 : _a.observe(this.$element);
+        DrivenByScroll.resizeObserver.observe(this.$element);
+        DrivenByScroll.intersectionObserver.observe(this.$element);
         DrivenByScroll.observed.push(this);
+        DrivenByScroll.onScroll();
     }
     DrivenByScroll.prototype.destroy = function () {
         var index = DrivenByScroll.observed.indexOf(this);
@@ -70,31 +71,12 @@ var DrivenByScroll = (function () {
         this.actionAreaHeight = this.exitPosition - this.enterPosition;
         this.stepPerPixel = 1 / this.actionAreaHeight;
     };
-    DrivenByScroll.prototype.calculateInstancePriority = function () {
-        var screensFromPosition = 0;
-        if (this.top > DrivenByScroll.viewPortTopLine &&
-            this.bottom > DrivenByScroll.viewPortTopLine) {
-            screensFromPosition =
-                (this.top - DrivenByScroll.viewPortTopLine) /
-                    DrivenByScroll.windowHeight;
-        }
-        else if (this.bottom < DrivenByScroll.viewPortTopLine) {
-            screensFromPosition =
-                (DrivenByScroll.viewPortTopLine - this.bottom) /
-                    DrivenByScroll.windowHeight;
-        }
-        screensFromPosition = Math.round(screensFromPosition);
-        if (5 < screensFromPosition)
-            screensFromPosition = 5;
-        this.priority = screensFromPosition;
-    };
     DrivenByScroll.prototype.scrollHandler = function () {
-        if (this.priority > DrivenByScroll.currentPriority)
+        if (!this.isVisable)
             return;
         var progressInPixels = DrivenByScroll.viewPortTopLine - this.bottom + this.actionAreaHeight;
         var progress = normoliseProgress(progressInPixels / this.actionAreaHeight);
-        var fromTopToBottom = normoliseProgress((DrivenByScroll.viewPortTopLine - this.bottom + this.height) /
-            (this.height - DrivenByScroll.windowHeight));
+        var fromTopToBottom = normoliseProgress((DrivenByScroll.viewPortTopLine - this.bottom + this.height) / (this.height - DrivenByScroll.windowHeight));
         this.callback({
             instance: this,
             viewPortTopLine: DrivenByScroll.viewPortTopLine,
@@ -103,57 +85,54 @@ var DrivenByScroll = (function () {
             fromEnterToMiddle: normoliseProgress(progress * 2),
             fromTopToBottom: fromTopToBottom,
         });
-        this.calculateInstancePriority();
     };
     DrivenByScroll.start = function () {
         DrivenByScroll.resizeObserver = new ResizeObserver(throttle(DrivenByScroll.onResize, 500));
-        globalThis.addEventListener('scroll', DrivenByScroll.onScroll);
+        DrivenByScroll.intersectionObserver = new IntersectionObserver(DrivenByScroll.onIntersect);
+        window.addEventListener('scroll', DrivenByScroll.onScroll);
         DrivenByScroll.onScroll();
         DrivenByScroll.onResize();
     };
     DrivenByScroll.stop = function () {
         delete DrivenByScroll.resizeObserver;
-        globalThis.removeEventListener('scroll', DrivenByScroll.onScroll);
+        delete DrivenByScroll.intersectionObserver;
+        window.removeEventListener('scroll', DrivenByScroll.onScroll);
     };
     DrivenByScroll.destroyAll = function () {
         DrivenByScroll.observed.splice(0, DrivenByScroll.observed.length);
     };
     DrivenByScroll.onResize = function () {
         DrivenByScroll.lastResize = Date.now();
-        DrivenByScroll.windowHeight = Math.round(globalThis.innerHeight);
+        DrivenByScroll.windowHeight = Math.round(window.innerHeight);
         DrivenByScroll.observed.forEach(function (instance) { return instance.calcBaseSizes(); });
         DrivenByScroll.onScroll();
     };
-    DrivenByScroll.onScroll = function () {
-        if (1000 / DrivenByScroll.maxFPS > Date.now() - DrivenByScroll.lastScroll)
-            return;
-        DrivenByScroll.lastScroll = Date.now();
-        var scrollTop = Math.round(globalThis.pageYOffset);
-        var clientTop = Math.round(document.documentElement.clientTop);
-        DrivenByScroll.viewPortTopLine = scrollTop - clientTop;
-        DrivenByScroll.viewPortBottomLine =
-            DrivenByScroll.viewPortTopLine + DrivenByScroll.windowHeight;
-        DrivenByScroll.observed.forEach(function (instance) {
-            instance.scrollHandler();
+    DrivenByScroll.onIntersect = function (entries) {
+        entries.forEach(function (entry) {
+            var isVisable = entry.isIntersecting;
+            var element = entry.target;
+            var instance = DrivenByScroll.observed.find(function (item) { return item.$element === element; });
+            instance.isVisable = isVisable;
+            if (isVisable)
+                instance === null || instance === void 0 ? void 0 : instance.calcBaseSizes();
         });
-        DrivenByScroll.nextGlobalPriority();
     };
-    DrivenByScroll.nextGlobalPriority = function () {
-        if (5 > DrivenByScroll.currentPriority) {
-            DrivenByScroll.currentPriority++;
-        }
-        else {
-            DrivenByScroll.currentPriority = 1;
-        }
-    };
-    DrivenByScroll.currentPriority = 1;
-    DrivenByScroll.windowHeight = globalThis.innerHeight;
-    DrivenByScroll.viewPortTopLine = globalThis.scrollY;
+    DrivenByScroll.windowHeight = window.innerHeight;
+    DrivenByScroll.viewPortTopLine = window.scrollY;
     DrivenByScroll.viewPortBottomLine = DrivenByScroll.viewPortTopLine + DrivenByScroll.windowHeight;
     DrivenByScroll.maxFPS = 60;
     DrivenByScroll.observed = [];
     DrivenByScroll.lastResize = Date.now();
     DrivenByScroll.lastScroll = Date.now();
+    DrivenByScroll.onScroll = throttle(function () {
+        var scrollTop = Math.round(window.pageYOffset);
+        var clientTop = Math.round(document.documentElement.clientTop);
+        DrivenByScroll.viewPortTopLine = scrollTop - clientTop;
+        DrivenByScroll.viewPortBottomLine = DrivenByScroll.viewPortTopLine + DrivenByScroll.windowHeight;
+        DrivenByScroll.observed.forEach(function (instance) {
+            instance.scrollHandler();
+        });
+    }, 1000 / DrivenByScroll.maxFPS);
     return DrivenByScroll;
 }());
 DrivenByScroll.start();

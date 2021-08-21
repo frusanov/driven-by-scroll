@@ -1,7 +1,7 @@
 {
   "name": "driven-by-scroll",
   "moduleName": "DrivenByScroll",
-  "version": "1.0.0-alpha",
+  "version": "1.0.0-alpha2",
   "main": "dist/index.cjs.js",
   "module": "dist/index.es.js",
   "browser": "dist/index.js",

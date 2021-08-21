@@ -11,16 +11,15 @@ interface DrivenByScrollStatus {
 }
 
 class DrivenByScroll {
-  static currentPriority = 1;
+  static intersectionObserver?: IntersectionObserver;
+  static resizeObserver?: ResizeObserver;
   static windowHeight = window.innerHeight;
   static viewPortTopLine = window.scrollY;
-  static viewPortBottomLine =
-    DrivenByScroll.viewPortTopLine + DrivenByScroll.windowHeight;
+  static viewPortBottomLine = DrivenByScroll.viewPortTopLine + DrivenByScroll.windowHeight;
   static maxFPS = 60;
   static observed: Array<DrivenByScroll> = [];
   static lastResize: number = Date.now();
   static lastScroll: number = Date.now();
-  static resizeObserver?: ResizeObserver;
 
   // Static methods you can find at the bottom
 
@@ -32,35 +31,29 @@ class DrivenByScroll {
   public exitPosition = 0;
   public actionAreaHeight = 0;
   public stepPerPixel = 0;
-  public priority = 1;
+  public isVisable = false;
 
   private callback: (status: DrivenByScrollStatus) => void;
 
-  constructor(
-    element: HTMLElement,
-    callback: (status: DrivenByScrollStatus) => void
-  ) {
+  constructor(element: HTMLElement, callback: (status: DrivenByScrollStatus) => void) {
     this.$element = element;
     this.callback = callback;
 
     this.calcBaseSizes();
     this.scrollHandler();
 
-    DrivenByScroll.resizeObserver?.observe(this.$element);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    DrivenByScroll.resizeObserver!.observe(this.$element);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    DrivenByScroll.intersectionObserver!.observe(this.$element);
     DrivenByScroll.observed.push(this);
+    DrivenByScroll.onScroll();
   }
 
   public destroy(): void {
     const index = DrivenByScroll.observed.indexOf(this);
     DrivenByScroll.observed.splice(index, 1);
   }
-
-  // public forceCalc() {
-  //   const memPriority = this.priority;
-  //   this.priority = 0;
-  //   onResizeInstanceHandler(this);
-  //   onScrollInstanceHandler(this);
-  // }
 
   public calcBaseSizes(): void {
     const rect = this.$element.getBoundingClientRect();
@@ -76,46 +69,14 @@ class DrivenByScroll {
     this.stepPerPixel = 1 / this.actionAreaHeight;
   }
 
-  public calculateInstancePriority(): void {
-    let screensFromPosition = 0;
-
-    /**
-     * Если обозреваемый элемент вне зоны видимости, вычесляет колличество
-     * экранов до него.
-     */
-    if (
-      this.top > DrivenByScroll.viewPortTopLine &&
-      this.bottom > DrivenByScroll.viewPortTopLine
-    ) {
-      // Выше зоны видимости
-      screensFromPosition =
-        (this.top - DrivenByScroll.viewPortTopLine) /
-        DrivenByScroll.windowHeight;
-    } else if (this.bottom < DrivenByScroll.viewPortTopLine) {
-      // Ниже зоны видимости
-      screensFromPosition =
-        (DrivenByScroll.viewPortTopLine - this.bottom) /
-        DrivenByScroll.windowHeight;
-    }
-
-    screensFromPosition = Math.round(screensFromPosition);
-    if (5 < screensFromPosition) screensFromPosition = 5;
-
-    this.priority = screensFromPosition;
-  }
-
   public scrollHandler(): void {
-    if (this.priority > DrivenByScroll.currentPriority) return;
+    if (!this.isVisable) return;
 
-    const progressInPixels =
-      DrivenByScroll.viewPortTopLine - this.bottom + this.actionAreaHeight;
-    const progress = normoliseProgress(
-      progressInPixels / this.actionAreaHeight
-    );
+    const progressInPixels = DrivenByScroll.viewPortTopLine - this.bottom + this.actionAreaHeight;
+    const progress = normoliseProgress(progressInPixels / this.actionAreaHeight);
 
     const fromTopToBottom = normoliseProgress(
-      (DrivenByScroll.viewPortTopLine - this.bottom + this.height) /
-        (this.height - DrivenByScroll.windowHeight)
+      (DrivenByScroll.viewPortTopLine - this.bottom + this.height) / (this.height - DrivenByScroll.windowHeight)
     );
 
     this.callback({
@@ -126,8 +87,6 @@ class DrivenByScroll {
       fromEnterToMiddle: normoliseProgress(progress * 2),
       fromTopToBottom,
     });
-
-    this.calculateInstancePriority();
   }
 
   /**
@@ -135,20 +94,18 @@ class DrivenByScroll {
    */
 
   static start(): void {
-    DrivenByScroll.resizeObserver = new ResizeObserver(
-      throttle(DrivenByScroll.onResize, 500)
-    );
+    DrivenByScroll.resizeObserver = new ResizeObserver(throttle(DrivenByScroll.onResize, 500));
+    DrivenByScroll.intersectionObserver = new IntersectionObserver(DrivenByScroll.onIntersect);
 
     window.addEventListener('scroll', DrivenByScroll.onScroll);
-    // window.addEventListener('resize', DrivenByScroll.onResize);
     DrivenByScroll.onScroll();
     DrivenByScroll.onResize();
   }
 
   static stop(): void {
     delete DrivenByScroll.resizeObserver;
+    delete DrivenByScroll.intersectionObserver;
     window.removeEventListener('scroll', DrivenByScroll.onScroll);
-    // window.removeEventListener('resize', DrivenByScroll.onResize);
   }
 
   static destroyAll(): void {
@@ -157,44 +114,34 @@ class DrivenByScroll {
 
   static throttledOnResize?(): unknown;
   static onResize(): void {
-    // if (500 > Date.now() - DrivenByScroll.lastResize) return;
     DrivenByScroll.lastResize = Date.now();
     DrivenByScroll.windowHeight = Math.round(window.innerHeight);
     DrivenByScroll.observed.forEach((instance) => instance.calcBaseSizes());
     DrivenByScroll.onScroll();
   }
 
-  static onScroll(): void {
-    if (1000 / DrivenByScroll.maxFPS > Date.now() - DrivenByScroll.lastScroll)
-      return;
-
-    DrivenByScroll.lastScroll = Date.now();
-
-    /**
-     * На каждом пятом скролле пересчитываются позиции элементов
-     *
-     * TODO: это место необходимо оптимизировать чтобы пересчет был существенно реже.
-     */
-
+  static onScroll = throttle(() => {
     const scrollTop = Math.round(window.pageYOffset);
     const clientTop = Math.round(document.documentElement.clientTop);
 
     DrivenByScroll.viewPortTopLine = scrollTop - clientTop;
-    DrivenByScroll.viewPortBottomLine =
-      DrivenByScroll.viewPortTopLine + DrivenByScroll.windowHeight;
+    DrivenByScroll.viewPortBottomLine = DrivenByScroll.viewPortTopLine + DrivenByScroll.windowHeight;
     DrivenByScroll.observed.forEach((instance) => {
       instance.scrollHandler();
     });
+  }, 1000 / DrivenByScroll.maxFPS);
 
-    DrivenByScroll.nextGlobalPriority();
-  }
+  static onIntersect(entries: Array<IntersectionObserverEntry>): void {
+    entries.forEach((entry) => {
+      const isVisable = entry.isIntersecting;
+      const element = entry.target;
+      const instance = DrivenByScroll.observed.find((item) => item.$element === element);
 
-  static nextGlobalPriority(): void {
-    if (5 > DrivenByScroll.currentPriority) {
-      DrivenByScroll.currentPriority++;
-    } else {
-      DrivenByScroll.currentPriority = 1;
-    }
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      instance!.isVisable = isVisable;
+
+      if (isVisable) instance?.calcBaseSizes();
+    });
   }
 }
 
